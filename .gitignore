@@ -1,0 +1,20 @@
+# Dataset (too large for git)
+data/dataset/
+data/raw/
+*.zip
+
+# Model weights
+models/*.pt
+runs/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Outputs
+outputs/*
+!outputs/.gitkeep
