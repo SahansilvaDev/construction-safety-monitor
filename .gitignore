@@ -4,7 +4,7 @@ data/raw/
 *.zip
 
 # Model weights
-models/*.pt
+models/*.pt except models/best.pt
 runs/
 
 # Python
