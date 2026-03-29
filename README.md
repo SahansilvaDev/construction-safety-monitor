@@ -8,6 +8,8 @@ Built with **YOLOv8** for object detection and a custom **rule engine** for comp
 ![YOLOv8](https://img.shields.io/badge/YOLOv8-ultralytics-purple)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+![App Screenshot](image.png)
+
 ---
 
 ## Table of Contents
@@ -99,7 +101,7 @@ uv run python inference.py --source 0
 
 ```
 
-### 4. Train Your Own Model (i used to train own one)
+### 4. Trained Own Model (i used to train own one)
 
 **Google Colab (using VS code Extension)**
 
@@ -152,6 +154,47 @@ Frame
    Green box = safe, Red box = violation
    Summary panel + full text report
 ```
+
+---
+## Steps by Steps run APP
+Step 1 — Set up the environment
+
+cd d:/Interview/SecondRound/construction-safety-monitor
+
+# Create virtual environment with uv
+uv venv
+
+# Activate it
+.venv\Scripts\activate      # Windows
+
+# Install dependencies
+uv pip install -r requirements.txt
+
+
+Step 2 — Run the Streamlit app
+
+uv run streamlit run app/streamlit_app.py
+
+Browser opens at http://localhost:8501. Then:
+
+Sidebar → upload any .jpg image of workers OR pick a sample image
+Adjust confidence threshold slider
+Choose required PPE (Hardhat, Safety Vest)
+See original vs annotated side by side, violation details below
+
+Step 3 — Run inference on test images from CLI
+
+# Single image
+uv run python inference.py --source data/dataset/css-data/test/images/000005_jpg.rf.96e9379ccae638140c4a90fc4b700a2b.jpg
+
+# Whole test folder (saves annotated images to outputs/)
+uv run python inference.py --source data/dataset/css-data/test/images/ --output outputs/
+Annotated images appear in outputs/.
+
+Step 4 — Run the tests
+
+uv run pytest tests/ -v
+---
 
 ---
 

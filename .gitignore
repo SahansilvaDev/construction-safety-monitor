@@ -10,7 +10,7 @@ runs/
 # Python
 __pycache__/
 *.pyc
-venv/
+.venv
 
 # Jupyter
 .ipynb_checkpoints/
