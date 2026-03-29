@@ -52,35 +52,32 @@ construction-safety-monitor/
 │   ├── test_safety_rules.py
 │   └── test_detector.py
 ├── inference.py              # CLI inference script
-├── pyproject.toml            # uv dependencies
+├── requirements.txt
 └── README.md
-
-
-
 ```
 
 ---
 
 ## Quick Start
 
-### 1. Clone and install
+### 1. Clone and Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/construction-safety-monitor
+git clone https://github.com/SahansilvaDev/construction-safety-monitor
 cd construction-safety-monitor
-uv sync
-
+uv venv
+uv pip install -r requirements.txt
+```
 
 ### 2. Get the Dataset
 
 Download from [Kaggle](https://www.kaggle.com/datasets/snehilsanyal/construction-site-safety-image-dataset-roboflow) and extract into `data/dataset/`. The download already includes pre-trained weights.
 
-and extract into data/dataset/. The download includes pretrained weights.
-
 Or use the helper script:
 
-
+```bash
 uv run python data/download_dataset.py
+```
 
 ### 3. Run Inference (Using Pre-trained Weights)
 
@@ -98,21 +95,19 @@ uv run python inference.py --source data/dataset/source_files/source_files/hardh
 
 # Webcam
 uv run python inference.py --source 0
-
 ```
 
-### 4. Trained Own Model (i used to train own one)
+### 4. Train Your Own Model (Optional)
 
-**Google Colab (using VS code Extension)**
-
-Open `notebooks/02_training.ipynb` 
-
+Open `notebooks/02_training.ipynb` in Google Colab with a T4 GPU runtime. The notebook handles dataset setup, training, and saving the best weights to Google Drive.
 
 ### 5. Launch Demo App
 
 ```bash
 uv run streamlit run app/streamlit_app.py
 ```
+
+Browser opens at `http://localhost:8501`. Upload a construction site image to analyse PPE compliance.
 
 ### 6. Run Tests
 
@@ -124,7 +119,7 @@ uv run pytest tests/ -v
 
 ## How It Works
 
-The system operates as a 5-stage pipeline
+The system operates as a 5-stage pipeline:
 
 ```
 Frame
@@ -156,52 +151,10 @@ Frame
 ```
 
 ---
-## Steps by Steps run APP
-Step 1 — Set up the environment
-
-cd d:/Interview/SecondRound/construction-safety-monitor
-
-# Create virtual environment with uv
-uv venv
-
-# Activate it
-.venv\Scripts\activate      # Windows
-
-# Install dependencies
-uv pip install -r requirements.txt
-
-
-Step 2 — Run the Streamlit app
-
-uv run streamlit run app/streamlit_app.py
-
-Browser opens at http://localhost:8501. Then:
-
-Sidebar → upload any .jpg image of workers OR pick a sample image
-Adjust confidence threshold slider
-Choose required PPE (Hardhat, Safety Vest)
-See original vs annotated side by side, violation details below
-
-Step 3 — Run inference on test images from CLI
-
-# Single image
-uv run python inference.py --source data/dataset/css-data/test/images/000005_jpg.rf.96e9379ccae638140c4a90fc4b700a2b.jpg
-
-# Whole test folder (saves annotated images to outputs/)
-
-uv run python inference.py --source data/dataset/css-data/test/images/ --output outputs/
-Annotated images appear in outputs/.
-
-Step 4 — Run the tests
-
-uv run pytest tests/ -v
----
-
----
 
 ## How YOLOv8 Works
 
-YOLOv8 processes the entire image in one forward pass through a neural network
+YOLOv8 processes the entire image in one forward pass through a neural network.
 
 ### Architecture Overview
 
@@ -212,18 +165,27 @@ Input (640×640)
   → Head (decoupled)        — predicts boxes, classes, confidence
   → NMS                     — removes duplicate detections
   → Detections [(bbox, class, confidence), ...]
-
 ```
 
-### Why one pass?
+### Why One Pass?
 
 Traditional detectors propose regions first, then classify each one (slow). YOLO divides the image into a grid and predicts everything simultaneously — fast enough for real-time video.
 
-
-### Why transfer learning?
+### Why Transfer Learning?
 
 We start from COCO-pretrained weights (80 classes, millions of images). The model already knows shapes, textures, and bodies. We fine-tune on our 10-class construction dataset — much faster and more accurate than training from scratch.
 
+### Model Sizes
+
+| Model | Parameters | Speed (GPU) | mAP (COCO) | Use Case |
+|-------|-----------|-------------|------------|----------|
+| YOLOv8n (nano) | 3.2M | Fastest | 37.3 | Edge devices, mobile |
+| YOLOv8s (small) | 11.2M | Fast | 44.9 | Good accuracy/speed balance |
+| YOLOv8m (medium) | 25.9M | Moderate | 50.2 | Higher accuracy needs |
+
+We use **YOLOv8n** for this project because it's fast enough for real-time monitoring and fits within Colab free-tier GPU constraints.
+
+---
 
 ## Dataset
 
@@ -316,14 +278,6 @@ engine = SafetyRuleEngine(zones=zones)
 | Validation (114 images) | **0.803** | **0.498** | **0.862** | **0.740** |
 | Test (82 images) | **0.745** | **0.457** | **0.911** | **0.681** |
 
-### Training Progression
-
-Early stopping triggered at epoch 94 (best epoch 84):
-
-- Training box loss: 1.37 → 0.79 (42% reduction)
-- Training cls loss: 3.06 → 0.57 (81% reduction)
-- Validation mAP@50: 0.25 → 0.80 (220% improvement)
-
 ### Per-Class Results (Test Set)
 
 | Class | mAP@50-95 | Notes |
@@ -342,9 +296,24 @@ Early stopping triggered at epoch 94 (best epoch 84):
 ### Training Progression
 
 Early stopping triggered at epoch 94 (best epoch 84):
+
 - Training box loss: 1.37 → 0.79 (42% reduction)
 - Training cls loss: 3.06 → 0.57 (81% reduction)
 - Validation mAP@50: 0.25 → 0.80 (220% improvement)
+
+### Confidence Threshold Analysis
+
+A sweep across confidence thresholds shows that **conf=0.35 maximises mAP@50** (0.806):
+
+| Threshold | Precision | Recall | mAP@50 |
+|-----------|-----------|--------|--------|
+| 0.25 | 0.913 | 0.681 | 0.802 |
+| **0.35** | **0.900** | **0.685** | **0.806** ← recommended |
+| 0.50 | 0.944 | 0.635 | 0.792 |
+| 0.70 | 0.966 | 0.521 | 0.742 |
+| 0.80 | 0.975 | 0.374 | 0.671 |
+
+The default threshold of 0.50 costs ~1.4 mAP points. For deployment, **conf=0.35** is the recommended operating point.
 
 ### What These Numbers Mean
 
@@ -357,18 +326,20 @@ Early stopping triggered at epoch 94 (best epoch 84):
 
 ## Known Limitations
 
-1. **Distant workers** - Detection accuracy drops for small bounding boxes (workers far from camera)
-2. **Heavy occlusion** - When workers overlap, PPE pairing may assign equipment to the wrong worker
-3. **Night / low-light** - Training data is primarily daytime; low-light performance is untested
-4. **Partial PPE** - The model detects presence/absence but cannot tell if PPE is worn *correctly* (e.g., helmet not fastened)
-5. **Small validation set** - Only 114 validation images; metrics could shift with a larger eval set
-6. **YOLOv8n size** - The nano model trades accuracy for speed; a larger model (YOLOv8s/m) would improve detection at the cost of inference time
+1. **Distant workers** — Detection accuracy drops for small bounding boxes (workers far from camera)
+2. **Heavy occlusion** — When workers overlap, PPE pairing may assign equipment to the wrong worker
+3. **Night / low-light** — Training data is primarily daytime; low-light performance is untested
+4. **Partial PPE** — The model detects presence/absence but cannot tell if PPE is worn *correctly* (e.g., helmet not fastened)
+5. **Small validation set** — Only 114 validation images; metrics could shift with a larger eval set
+6. **YOLOv8n size** — The nano model trades accuracy for speed; a larger model (YOLOv8s/m) would improve detection at the cost of inference time
+
+---
 
 ## Future Improvements
 
 - **Object tracking** (DeepSORT / ByteTrack) for consistent worker IDs across video frames
 - **Edge deployment** with TensorRT / ONNX for embedded cameras
-- **Additional PPE** - goggles, gloves, harness detection
+- **Additional PPE** — goggles, gloves, harness detection
 - **Pose estimation** for unsafe posture detection (working at height without fall protection)
 - **Alert system** with email/SMS notifications for persistent violations
 - **Historical dashboard** with violation analytics over time
