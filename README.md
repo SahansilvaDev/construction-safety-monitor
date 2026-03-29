@@ -261,9 +261,9 @@ engine = SafetyRuleEngine(zones=zones)
 
 ## Model Performance
 
-**Model:** YOLOv8n (nano) trained on the CSS dataset.
-**Stopped:** Epoch 94 (early stopping — best at epoch 84, patience=10)
-**Training time:** 1.307 hours on Tesla T4 GPU
+**Model:** YOLOv8n (nano) fine-tuned on the CSS dataset.
+**Training:** Stopped at epoch 94 via early stopping (best checkpoint: epoch 84, patience=10).
+**Hardware:** Tesla T4 GPU — total training time 1.307 hours.
 
 ### Overall Metrics
 
@@ -271,6 +271,14 @@ engine = SafetyRuleEngine(zones=zones)
 |-------|--------|-----------|-----------|--------|
 | Validation (114 images) | **0.803** | **0.498** | **0.862** | **0.740** |
 | Test (82 images) | **0.745** | **0.457** | **0.911** | **0.681** |
+
+### Training Progression
+
+Early stopping triggered at epoch 94 (best epoch 84):
+
+- Training box loss: 1.37 → 0.79 (42% reduction)
+- Training cls loss: 3.06 → 0.57 (81% reduction)
+- Validation mAP@50: 0.25 → 0.80 (220% improvement)
 
 ### Per-Class Results (Test Set)
 
