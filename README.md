@@ -29,55 +29,56 @@ Built with **YOLOv8** for object detection and a custom **rule engine** for comp
 ```
 construction-safety-monitor/
 ├── data/
-│   ├── download_dataset.py        # Alternative Roboflow download script
-│   ├── prepare_dataset.py         # Validate, remap classes, analyze
-│   ├── sample_images/             # Sample images for demo
-│   ├── README.md                  # Full dataset documentation
-│   └── dataset/
-│       ├── css-data/              # Kaggle dataset (train/valid/test)
-│       │   ├── data.yaml          # YOLOv8 dataset config
-│       │   ├── train/images+labels/
-│       │   ├── valid/images+labels/
-│       │   └── test/images+labels/
-│       ├── results_yolov8n_100e/  # Pre-trained model + Kaggle notebook
-│       └── source_files/          # Extra test images and videos
+│   ├── dataset/              # Kaggle dataset (not in git - see below)
+│   ├── sample_images/        # Small set of images for quick demo
+│   ├── download_dataset.py   # Kaggle download helper
+│   └── README.md             # Full dataset documentation
 ├── notebooks/
-│   ├── 01_data_exploration.ipynb  # EDA: class distribution, bbox analysis
-│   ├── 02_training.ipynb          # Colab-compatible training notebook
-│   └── 03_evaluation.ipynb        # mAP analysis, confusion matrix
+│   ├── 01_data_exploration.ipynb
+│   ├── 02_training.ipynb
+│   └── 03_evaluation.ipynb
 ├── src/
-│   ├── config.py                  # Central configuration and class mappings
-│   ├── detector.py                # YOLOv8 wrapper
-│   ├── safety_rules.py            # Compliance rule engine with zone support
-│   ├── violation_tracker.py       # Temporal tracking for video streams
-│   ├── annotator.py               # Frame annotation and report generation
-│   └── utils.py                   # Spatial reasoning: worker-PPE pairing
+│   ├── config.py             # Class mappings, paths, thresholds
+│   ├── detector.py           # YOLOv8 wrapper
+│   ├── utils.py              # Spatial worker-PPE pairing
+│   ├── safety_rules.py       # Compliance rule engine
+│   ├── violation_tracker.py  # Temporal tracking for video
+│   └── annotator.py          # Frame annotation and reports
 ├── app/
-│   └── streamlit_app.py           # Interactive web demo
+│   └── streamlit_app.py      # Interactive web demo
 ├── tests/
-│   ├── test_safety_rules.py       # Unit tests for compliance logic
-│   └── test_detector.py           # Detection module tests
-├── train.py                       # CLI training script
-├── inference.py                   # CLI inference (image/video/webcam)
-├── requirements.txt
+│   ├── test_safety_rules.py
+│   └── test_detector.py
+├── inference.py              # CLI inference script
+├── pyproject.toml            # uv dependencies
 └── README.md
+
+
+
 ```
 
 ---
 
 ## Quick Start
 
-### 1. Install Dependencies
+### 1. Clone and install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/construction-safety-monitor.git
+git clone https://github.com/YOUR_USERNAME/construction-safety-monitor
 cd construction-safety-monitor
-pip install -r requirements.txt
-```
+uv sync
+
 
 ### 2. Get the Dataset
 
 Download from [Kaggle](https://www.kaggle.com/datasets/snehilsanyal/construction-site-safety-image-dataset-roboflow) and extract into `data/dataset/`. The download already includes pre-trained weights.
+
+and extract into data/dataset/. The download includes pretrained weights.
+
+Or use the helper script:
+
+
+uv run python data/download_dataset.py
 
 ### 3. Run Inference (Using Pre-trained Weights)
 
@@ -85,180 +86,100 @@ The Kaggle download includes a YOLOv8n model already trained for 100 epochs. You
 
 ```bash
 # Single image
-python inference.py --source path/to/image.jpg
+uv run python inference.py --source path/to/image.jpg
+
+# Folder of images
+uv run python inference.py --source data/dataset/css-data/test/images/
 
 # Video file
-python inference.py --source data/dataset/source_files/source_files/hardhat.mp4
+uv run python inference.py --source data/dataset/source_files/source_files/hardhat.mp4
 
 # Webcam
-python inference.py --source 0
+uv run python inference.py --source 0
 
-# Directory of images
-python inference.py --source data/dataset/css-data/test/images/ --output outputs/
 ```
 
-### 4. Train Your Own Model (Optional)
+### 4. Train Your Own Model (i used to train own one)
 
-**Option A: Google Colab (Recommended)**
+**Google Colab (using VS code Extension)**
 
-Open `notebooks/02_training.ipynb` in [Google Colab](https://colab.research.google.com/) with GPU runtime enabled.
+Open `notebooks/02_training.ipynb` 
 
-**Option B: Local**
-
-```bash
-python train.py --model yolov8n.pt --data data/dataset/css-data/data.yaml --epochs 100
-```
 
 ### 5. Launch Demo App
 
 ```bash
-streamlit run app/streamlit_app.py
+uv run streamlit run app/streamlit_app.py
 ```
 
 ### 6. Run Tests
 
 ```bash
-pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
 ---
 
 ## How It Works
 
-The system operates as a 5-stage pipeline:
+The system operates as a 5-stage pipeline
 
 ```
-Image/Frame
-    │
-    ▼
-┌─────────────────┐
-│  1. YOLOv8       │  Detect all objects (workers, PPE, NO-PPE, etc.)
-│     Detection    │  Returns bounding boxes + class + confidence
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  2. Worker-PPE   │  Match PPE detections to specific workers using
-│     Pairing      │  spatial reasoning (head region → helmet, torso → vest)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  3. Compliance   │  Check each worker against safety rules
-│     Check        │  (configurable per-zone PPE requirements)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  4. Violation    │  For video: require violations to persist across
-│     Tracking     │  multiple frames before alerting (reduces false alarms)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  5. Annotation   │  Draw green/red boxes, PPE labels, violation alerts,
-│     & Reporting  │  summary statistics, and text reports
-└─────────────────┘
+Frame
+  │
+  ▼
+1. YOLOv8 Detection
+   Detects all objects: Person, Hardhat, NO-Hardhat,
+   Safety Vest, NO-Safety Vest, Mask, NO-Mask, etc.
+  │
+  ▼
+2. Worker-PPE Pairing  (src/utils.py)
+   Matches each PPE detection to the correct worker
+   using head region (top 30%) and torso region (middle 40%)
+  │
+  ▼
+3. Compliance Check  (src/safety_rules.py)
+   Checks each worker against required PPE rules
+   Supports zone-based rules (different areas = different requirements)
+  │
+  ▼
+4. Violation Tracking  (src/violation_tracker.py)
+   For video: only report violations that persist 10+ frames
+   Eliminates single-frame false positives
+  │
+  ▼
+5. Annotation + Report  (src/annotator.py)
+   Green box = safe, Red box = violation
+   Summary panel + full text report
 ```
-
-### Stage 1: Detection
-
-YOLOv8 processes the entire image in a single forward pass and outputs bounding boxes for all 10 classes. See [How YOLOv8 Works](#how-yolov8-works) for details.
-
-### Stage 2: Worker-PPE Pairing
-
-After detection, we have independent boxes for `Person`, `Hardhat`, `NO-Hardhat`, `Safety Vest`, etc. The challenge is determining *which PPE belongs to which worker*.
-
-We solve this with **spatial reasoning**:
-- **Head region** = top 30% of the worker's bounding box. We match `Hardhat` and `NO-Hardhat` detections here.
-- **Torso region** = middle 40% of the worker's bounding box. We match `Safety Vest` and `NO-Safety Vest` here.
-- **Face region** = upper 25%, narrowed horizontally. We match `Mask` and `NO-Mask` here.
-
-Matching uses IoU (Intersection over Union) and center-point containment checks.
-
-### Stage 3: Compliance Check
-
-The rule engine evaluates each worker against the required PPE list:
-- If the worker has the PPE → compliant
-- If a `NO-*` class was detected → violation with confidence from the detection
-- If neither was detected → violation flagged with zero confidence
-
-### Stage 4: Temporal Tracking (Video Only)
-
-In video streams, single-frame false positives are common. The `ViolationTracker` requires a violation to appear in **N consecutive frames** before reporting it. This dramatically reduces false alarms.
-
-### Stage 5: Annotation & Reporting
-
-The annotator draws:
-- **Green boxes** around compliant workers
-- **Red boxes** around non-compliant workers
-- PPE labels with confidence scores
-- A summary panel showing total workers, compliant count, and violation count
-- A full text report suitable for logging
 
 ---
 
 ## How YOLOv8 Works
 
-YOLOv8 (You Only Look Once, version 8) is a real-time object detection model. Here's how it processes an image:
+YOLOv8 processes the entire image in one forward pass through a neural network
 
 ### Architecture Overview
 
 ```
-Input Image (640×640)
-       │
-       ▼
-┌──────────────┐
-│  Backbone     │  CSPDarknet53 — extracts visual features at multiple
-│  (Feature     │  scales. Uses cross-stage partial connections to reduce
-│   Extraction) │  computation while preserving gradient flow.
-└──────┬───────┘
-       │  Feature maps at 3 scales (small, medium, large objects)
-       ▼
-┌──────────────┐
-│  Neck         │  Feature Pyramid Network (FPN) + Path Aggregation
-│  (Multi-scale │  Network (PAN). Fuses features from different scales
-│   Fusion)     │  so small objects get high-resolution detail and large
-│               │  objects get semantic context.
-└──────┬───────┘
-       │  Multi-scale feature maps
-       ▼
-┌──────────────┐
-│  Head         │  Decoupled head — predicts three things independently:
-│  (Detection)  │   • Object class probabilities (which of the 10 classes)
-│               │   • Bounding box coordinates (x, y, width, height)
-│               │   • Objectness score (is there an object here?)
-└──────┬───────┘
-       │
-       ▼
-  Non-Maximum Suppression (NMS)
-  Removes duplicate detections for the same object
-       │
-       ▼
-  Final Detections: [(bbox, class, confidence), ...]
+Input (640×640)
+  → Backbone (CSPDarknet)   — extracts features at multiple scales
+  → Neck (FPN + PAN)        — fuses small and large scale features
+  → Head (decoupled)        — predicts boxes, classes, confidence
+  → NMS                     — removes duplicate detections
+  → Detections [(bbox, class, confidence), ...]
+
 ```
 
-### Why "You Only Look Once"?
+### Why one pass?
 
-Traditional detectors (like R-CNN) process an image in two stages: first propose regions that might contain objects, then classify each region. This is slow.
+Traditional detectors propose regions first, then classify each one (slow). YOLO divides the image into a grid and predicts everything simultaneously — fast enough for real-time video.
 
-YOLO processes the entire image in a **single pass** through the network. It divides the image into a grid and predicts bounding boxes and class probabilities for each grid cell simultaneously. This makes it fast enough for real-time video processing (60+ FPS on a GPU).
 
-### Transfer Learning
+### Why transfer learning?
 
-We don't train from scratch. We start with YOLOv8 weights pre-trained on the COCO dataset (80 common object classes like people, cars, chairs). These weights already know how to detect edges, textures, body shapes, and objects. We then **fine-tune** on our construction safety dataset, teaching the model our specific 10 classes. This requires far less data and training time than starting from random weights.
+We start from COCO-pretrained weights (80 classes, millions of images). The model already knows shapes, textures, and bodies. We fine-tune on our 10-class construction dataset — much faster and more accurate than training from scratch.
 
-### Model Sizes
-
-| Model | Parameters | Speed (GPU) | mAP (COCO) | Use Case |
-|-------|-----------|-------------|------------|----------|
-| YOLOv8n (nano) | 3.2M | Fastest | 37.3 | Edge devices, mobile |
-| YOLOv8s (small) | 11.2M | Fast | 44.9 | Good accuracy/speed balance |
-| YOLOv8m (medium) | 25.9M | Moderate | 50.2 | Higher accuracy needs |
-
-We use **YOLOv8n** for this project because it's fast enough for real-time monitoring and fits within the constraints of Kaggle/Colab free-tier GPUs.
-
----
 
 ## Dataset
 
@@ -326,14 +247,12 @@ Different areas of a site can have different requirements:
 from src.safety_rules import SafetyRuleEngine, Zone, Severity
 
 zones = [
-    Zone(name="scaffolding",
-         polygon=[(0,0), (300,0), (300,400), (0,400)],
-         required_ppe=["Hardhat", "Safety Vest", "Mask"],
-         severity=Severity.CRITICAL),
-    Zone(name="parking",
-         polygon=[(500,0), (640,0), (640,400), (500,400)],
-         required_ppe=["Safety Vest"],
-         severity=Severity.LOW),
+    Zone(
+        name="scaffolding",
+        polygon=[(0,0),(300,0),(300,400),(0,400)],
+        required_ppe=["Hardhat", "Safety Vest", "Mask"],
+        severity=Severity.CRITICAL,
+    )
 ]
 engine = SafetyRuleEngine(zones=zones)
 ```
@@ -342,32 +261,45 @@ engine = SafetyRuleEngine(zones=zones)
 
 ## Model Performance
 
-**Model:** YOLOv8n (nano) trained for 100 epochs on the CSS dataset.
+**Model:** YOLOv8n (nano) trained on the CSS dataset.
+**Stopped:** Epoch 94 (early stopping — best at epoch 84, patience=10)
+**Training time:** 1.307 hours on Tesla T4 GPU
 
-### Overall Metrics (Epoch 99)
+### Overall Metrics
 
-| Metric | Value |
-|--------|-------|
-| mAP@50 | **0.809** |
-| mAP@50-95 | **0.507** |
-| Precision | **0.900** |
-| Recall | **0.731** |
+| Split | mAP@50 | mAP@50-95 | Precision | Recall |
+|-------|--------|-----------|-----------|--------|
+| Validation (114 images) | **0.803** | **0.498** | **0.862** | **0.740** |
+| Test (82 images) | **0.745** | **0.457** | **0.911** | **0.681** |
+
+### Per-Class Results (Test Set)
+
+| Class | mAP@50-95 | Notes |
+|-------|-----------|-------|
+| Hardhat | 0.581 | Strong — large, distinct shape |
+| Mask | 0.548 | Strong — clear visual pattern |
+| Safety Vest | 0.577 | Strong — bright colour |
+| machinery | 0.589 | Strong — large objects |
+| Person | 0.519 | Good — benefits from COCO pretraining |
+| NO-Safety Vest | 0.491 | Moderate |
+| vehicle | 0.444 | Moderate — varied shapes |
+| NO-Mask | 0.333 | Harder — subtle difference from Mask |
+| NO-Hardhat | 0.272 | Hardest — easily confused with background |
+| Safety Cone | 0.211 | Few training examples |
 
 ### Training Progression
 
-The model converges around epoch 80-90, with early stopping patience of 10 epochs:
+Early stopping triggered at epoch 94 (best epoch 84):
+- Training box loss: 1.37 → 0.79 (42% reduction)
+- Training cls loss: 3.06 → 0.57 (81% reduction)
+- Validation mAP@50: 0.25 → 0.80 (220% improvement)
 
-- Training box loss: 1.37 → 0.75 (45% reduction)
-- Training cls loss: 3.06 → 0.56 (82% reduction)
-- Validation mAP@50: 0.25 → 0.81 (224% improvement)
+### What These Numbers Mean
 
-### Why These Numbers Matter
-
-- **Precision 0.90** = When the model flags a violation, it's correct 90% of the time. Low false alarm rate.
-- **Recall 0.73** = The model catches 73% of actual violations. Some violations are missed, especially for distant or occluded workers.
-- **mAP@50 0.81** = Strong overall detection quality across all classes.
-
-For a safety system, **high precision is more important than high recall** because frequent false alarms cause alert fatigue and operators stop paying attention. The 90% precision is encouraging.
+- **Precision 0.911** — when the model flags a violation, it is correct 91% of the time. Very low false alarm rate — important for safety systems where alert fatigue is a real risk.
+- **Recall 0.681** — catches 68% of real violations. Some are missed, especially distant or occluded workers.
+- **NO-Hardhat mAP 0.272** — the hardest class. A bare head is visually subtle, especially at distance. This is where the most missed violations come from.
+- **mAP@50 0.745** on the unseen test set — solid generalisation for a nano model trained in ~1 hour.
 
 ---
 
